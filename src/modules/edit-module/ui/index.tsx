@@ -1,9 +1,10 @@
-import React, { useRef, useState } from 'react';
-import type { InternalParam, Model, Param } from './types';
-import { default_params } from './contants';
+import React, { useEffect, useState } from 'react';
+import type { InternalParam, Model, Param } from '../types';
+import { getServerModel, syncClientToServer } from '../api';
 
 export interface Props {
   params: Param[];
+  onUnmount?: (model: Model) => void | Promise<void>; 
 }
 
 export interface State {
@@ -11,11 +12,13 @@ export interface State {
 }
 
 class ParamEditor extends React.Component<Props, State> {
-  public getModel(): Model {
+  getModel = (): Model => {
     return {
       paramValues: this.state.params.map((_p) => ({
         paramId: _p.id,
         value: _p.value,
+        type: _p.type,
+        name: _p.name,
       })),
       colors: [],
     };
@@ -24,10 +27,14 @@ class ParamEditor extends React.Component<Props, State> {
   constructor(p: Props) {
     super(p);
 
-    const params = p.params.map((e) => ({ ...e, value: '' }));
+    const params = p.params.map((e) => ({ ...e, value: e.value ?? '' }));
     this.state = {
       params,
     };
+
+    this.componentWillUnmount = () => {
+      p.onUnmount?.(this.getModel())
+    }
   }
 
   static getDerivedStateFromProps(
@@ -36,7 +43,7 @@ class ParamEditor extends React.Component<Props, State> {
   ): Partial<State> | null {
     const paramsMap = new Map<string, InternalParam>();
     prevState.params.forEach((p) => paramsMap.set(String(p.id), p));
-    
+
     if (prevState.params !== nextProps.params) {
       return {
         params: nextProps.params.map((p) => {
@@ -65,9 +72,11 @@ class ParamEditor extends React.Component<Props, State> {
         {list.map((param) => {
           return (
             <li key={param.id}>
-              <label>{param.name}</label>
+              <label htmlFor={`input-${param.id}`}>{param.name}</label>
               <span>-</span>
               <input
+                id={`input-${param.id}`}
+                role={`input-for-${param.id}`}
                 value={typeof param.value === 'string' ? param.value : void 0}
                 checked={
                   typeof param.value === 'boolean' ? param.value : void 0
@@ -92,9 +101,10 @@ class ParamEditor extends React.Component<Props, State> {
 }
 
 export const Module = () => {
-    const selectRef = useRef<HTMLSelectElement>(null);
-    const [params, setParams] = useState(default_params);
-    const [input, setInput] = useState('')
+  const [option, setOption] = useState('text');
+  const [params, setParams] = useState<Param[]>([]);
+  const [input, setInput] = useState('');
+
 
   const handleCreateNewParam = () => {
     setParams((p) => [
@@ -102,28 +112,42 @@ export const Module = () => {
       {
         id: crypto.randomUUID(),
         name: input || crypto.randomUUID(),
-        type: selectRef.current?.value,
+        type: option,
       },
     ]);
 
-    setInput('')
+    setInput('');
   };
+
+  useEffect(() => {
+    getServerModel().then(setParams)
+  }, [])
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 12 }}>
         <input
+          role="add-new-field-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Имя параметра"
         />
-        <select ref={selectRef}>
-          <option value={void 0}>Строка</option>
+        <select
+          role="add-new-field-select"
+          onChange={(e) => setOption(e.target.value)}
+          value={option}
+        >
+          <option value={'text'}>Строка</option>
           <option value={'checkbox'}>Чекбокс</option>
         </select>
-        <button onClick={handleCreateNewParam}>Добавить параметр</button>
+        <button
+          role="add-new-field-button"
+          onClick={handleCreateNewParam}
+        >
+          Добавить параметр
+        </button>
       </div>
-      <ParamEditor params={params} />
+      <ParamEditor params={params} onUnmount={syncClientToServer}/>
     </div>
   );
 };

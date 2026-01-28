@@ -1,28 +1,26 @@
-import type { Param } from "../types"
+import type { Model, Param } from '../types';
 
-export const default_model = {
-"paramValues": [
-{
-  "paramId": 1,
-  "value": "повседневное"
-},
-{
-  "paramId": 2,
-  "value": "макси"
-},
-],
-colors: []
-}
-
-export const default_params: Param[] = [
+export const default_model: Model = {
+  paramValues: [
     {
-      id: 1,
-      name: '1',
-      type: 'email'
+      paramId: 1,
+      value: 'повседневное',
+      name: 'Тип',
+      type: 'text',
     },
     {
-      id: 2,
-      name: '2',
-      type: 'checkbox'
-    }
-  ]
+      paramId: 2,
+      value: 'макси',
+      name: 'Значение',
+      type: 'text',
+    },
+  ],
+  colors: [],
+};
+
+export const default_params: Param[] = [{
+    id: 3,
+    value: '123',
+    name: 'Рандом',
+    type: 'text',
+}];
