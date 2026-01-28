@@ -1,0 +1,198 @@
+import React, { useEffect, useState } from 'react';
+import type { InputHTMLAttributes } from "react";
+
+  
+export interface Param {
+  id: number | string;
+  name: string;
+  type: InputHTMLAttributes<HTMLInputElement>['type'];
+  value?: string | boolean;
+}
+export interface ParamValue {
+  paramId: number | string;
+  name: Param['name'];
+  value: string | boolean;
+  type: Param['type'];
+}
+export interface Color {
+  id: string;
+  value: string | boolean;
+}
+export interface Model {
+  paramValues: ParamValue[];
+  colors: Color[];
+}
+
+
+export  interface InternalParam extends Param { value: string | boolean };
+
+
+export const transformModelToParams = (model: Model): Param[] => {
+    return model.paramValues.map((modelParam) => ({
+        id: modelParam.paramId,
+        type: modelParam.type,
+        name: modelParam.name,
+        value: modelParam.value,
+    }))
+}
+
+export const getServerModel = async () => {
+    const model = await  Promise.resolve(default_model)
+
+    return transformModelToParams(model);
+};
+
+export const syncClientToServer = async (model: Model) => {
+    console.log(model);
+    return await Promise.resolve();
+}
+
+export interface Props {
+  params: Param[];
+  onUnmount?: (model: Model) => void | Promise<void>; 
+}
+
+export interface State {
+  params: InternalParam[];
+}
+
+class ParamEditor extends React.Component<Props, State> {
+  getModel = (): Model => {
+    return {
+      paramValues: this.state.params.map((_p) => ({
+        paramId: _p.id,
+        value: _p.value,
+        type: _p.type,
+        name: _p.name,
+      })),
+      colors: [],
+    };
+  }
+
+  constructor(p: Props) {
+    super(p);
+
+    const params = p.params.map((e) => ({ ...e, value: e.value ?? '' }));
+    this.state = {
+      params,
+    };
+
+    this.componentWillUnmount = () => {
+      p.onUnmount?.(this.getModel())
+    }
+  }
+
+  static getDerivedStateFromProps(
+    nextProps: Props,
+    prevState: State
+  ): Partial<State> | null {
+    const paramsMap = new Map<string, InternalParam>();
+    prevState.params.forEach((p) => paramsMap.set(String(p.id), p));
+
+    if (prevState.params !== nextProps.params) {
+      return {
+        params: nextProps.params.map((p) => {
+          const oldState = paramsMap.get(String(p.id));
+          return oldState ? oldState : { ...p, value: '' };
+        }),
+      };
+    }
+
+    return null;
+  }
+
+  private _handleChange = (id: string, value: string | boolean) => {
+    this.setState((prevState) => ({
+      params: prevState.params.map((p) =>
+        String(p.id) === String(id) ? { ...p, value } : p
+      ),
+    }));
+  };
+
+  render() {
+    const list = this.state.params;
+
+    return (
+      <ul>
+        {list.map((param) => {
+          return (
+            <li key={param.id}>
+              <label htmlFor={`input-${param.id}`}>{param.name}</label>
+              <span>-</span>
+              <input
+                id={`input-${param.id}`}
+                role={`input-for-${param.id}`}
+                value={typeof param.value === 'string' ? param.value : void 0}
+                checked={
+                  typeof param.value === 'boolean' ? param.value : void 0
+                }
+                type={param.type}
+                onChange={(e) => {
+                  const value =
+                    param.type === 'checkbox'
+                      ? e.target.checked
+                      : e.target.value;
+
+                  this._handleChange(String(param.id), value);
+                }}
+              />
+            </li>
+          );
+        })}
+        <button onClick={() => console.log(this.getModel())}>get Model</button>
+      </ul>
+    );
+  }
+}
+
+export const Module = () => {
+  const [option, setOption] = useState('text');
+  const [params, setParams] = useState<Param[]>([]);
+  const [input, setInput] = useState('');
+
+
+  const handleCreateNewParam = () => {
+    setParams((p) => [
+      ...p,
+      {
+        id: crypto.randomUUID(),
+        name: input || crypto.randomUUID(),
+        type: option,
+      },
+    ]);
+
+    setInput('');
+  };
+
+  useEffect(() => {
+    getServerModel().then(setParams)
+  }, [])
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <input
+          role="add-new-field-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Имя параметра"
+        />
+        <select
+          role="add-new-field-select"
+          onChange={(e) => setOption(e.target.value)}
+          value={option}
+        >
+          <option value={'text'}>Строка</option>
+          <option value={'checkbox'}>Чекбокс</option>
+        </select>
+        <button
+          role="add-new-field-button"
+          onClick={handleCreateNewParam}
+        >
+          Добавить параметр
+        </button>
+      </div>
+      <ParamEditor params={params} onUnmount={syncClientToServer}/>
+    </div>
+  );
+};

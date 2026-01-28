@@ -17,3 +17,11 @@
 ```bash
   npm run test
 ```
+
+
+### ТЗ
+
+Файл со всем скриптом
+```bash
+  cat ./test.txt
+```
